@@ -1,0 +1,73 @@
+## page was renamed from Ubuntuメモ
+== 「デスクトップ」「ドキュメント」を英語表記に ==
+{{{
+LC_ALL=C xdg-user-dirs-gtk-update
+}}}
+
+== Thinkpad オプション ==
+トラックポイントを高速に <<BR>>
+http://kaede.blog.abk.nu/tp4-optimization <<BR>>
+/etc/rc.localに追加
+{{{
+temp=`udevadm info -a -p \`udevadm info -q path -n /dev/input/tp4\` \
+| grep -v input \
+| grep looking \
+| sed -e 's/'\''/"/g' \
+| cut -d '"' -f 2 \
+| head -1`
+Tp4Sensitivity=/sys/$temp/sensitivity
+Tp4Speed=/sys/$temp/speed
+# Configuare for TrackPoint Device
+echo -n 255 > $Tp4Sensitivity
+echo -n 160 > $Tp4Speed
+}}}
+
+== トラックポイントでスクロール ==
+{{{
+$ sudo aptitude install gpointing-device-settings
+$ gpointing-device-settings
+button 2を選択してホイールエミュレーションを行う。
+}}}
+
+== IPv6を無効に ==
+kernel-2.6.30をインストール(Ubuntu 10.10では必要ありません) <<BR>>
+/boot/grub/menu.lstを書き換え <<BR>>
+koptに入れといた方がよさそうだけど・・・。
+{{{
+title           Ubuntu 9.04, kernel 2.6.30-020630-generic
+root            ()/ubuntu/disks
+kernel          /boot/vmlinuz-2.6.30-020630-generic root=UUID=7AD43FBAD43F7789 loop=/ubuntu/disks/root.disk ro quiet splash ipv6.disable=1
+initrd          /boot/initrd.img-2.6.30-020630-generic
+}}}
+
+== g++-3.4をインストール ==
+{{{
+url=http://us.archive.ubuntu.com/ubuntu/pool/universe/g/gcc-3.4
+version=3.4.6-6ubuntu5
+arch=amd64
+wget $url/gcc-3.4-base_${version}_$arch.deb 
+wget $url/cpp-3.4_${version}_$arch.deb 
+wget $url/gcc-3.4_${version}_$arch.deb 
+wget $url/g++-3.4_${version}_$arch.deb 
+wget $url/libstdc++6-dev_${version}_$arch.deb
+sudo dpkg -i gcc-3.4-base_${version}_$arch.deb \ 
+             cpp-3.4_${version}_$arch.deb \ 
+                          gcc-3.4_${version}_$arch.deb 
+sudo dpkg -i g++-3.4_${version}_$arch.deb \
+                libstdc++6-dev_${version}_$arch.deb
+cd /lib && sudo ln -s ls x86_64-linux-gnu/libgcc_s.so.1 .
+
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.4 60 --slave /usr/bin/g++ g++ /usr/bin/g++-4.4
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-3.4 80 --slave /usr/bin/g++ g++ /usr/bin/g++-3.4
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.5 40 --slave /usr/bin/g++ g++ /usr/bin/g++-4.5
+
+}}}
+
+
+== パスワードと鍵のダイアログを消す ==
+{{{
+1. 「パスワードと鍵」アプリケーションを起動する
+2. 「パスワード: login」を右クリックして、パスワードを変更を選択する
+3. 空のパスワードを入力する
+}}}
+

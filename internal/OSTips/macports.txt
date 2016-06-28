@@ -1,0 +1,36 @@
+= MacPorts =
+== 概要 ==
+このドキュメントはMacPortsの作り方について説明しています。
+
+
+== テンプレート ==
+Portfileは以下のような形式で書かれます。
+{{{
+# -*- coding: utf-8; mode: tcl; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- vim:fenc=utf-8:ft=tcl:et:sw=4:ts=4:sts=4
+# $Id$
+
+PortSystem          1.0
+
+name                petitsch
+version             0.1
+categories          net
+platforms           darwin
+maintainers         shnya
+description         petit scheme interpreter
+long_description    petitsch is a interpreter for minimal embedded scheme langugage
+homepage            http://shnya.jp/moin/software/petitsch
+master_sites        http://shnya.jp/public/
+distname            ${name}
+destroot.destdir    DESTDIR=${destroot}${prefix}
+
+checksums           sha1  2611bb3bc4e7e7909c504bcb061dc3f4c6ab6377
+
+configure { }
+}}}
+
+
+== 参考文献 ==
+ * [[http://blog.asial.co.jp/381|MacPortsで自前のPortsファイルを作って使ってみよう]]
+ * [[http://d.hatena.ne.jp/Christopher-727/20080828| MacPortsで自作パッケージを作る]]
+ * [[http://guide.macports.org/|MacPorts Guide]]
+

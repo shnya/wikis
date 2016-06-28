@@ -1,0 +1,16 @@
+== compression ==
+ * [[Dynamic Huffman Coding(FGK)]]
+
+== NLP ==
+ * [[http://www.seas.upenn.edu/~strctlrn/index.html|MST Parser Struct Learn(MIRA)]]
+ * [[ICML2010]]
+ * [[劣モジュラ最適化]]
+
+== Programming Contest ==
+ * [[TopCoder]]
+
+== Database ==
+ * http://www.citeulike.org/user/myui
+
+== 論文 ==
+ * [[http://www.ics.uci.edu/~redmiles/ics227-SQ04/papers/KrasnerPope88.pdf|MVC]]

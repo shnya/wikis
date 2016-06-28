@@ -1,0 +1,31 @@
+== 関数 ==
+ * data()
+   * データセット一覧を確認
+ * library()
+   * 読み込み済みライブラリ確認と、ライブラリの取得
+
+== 文字コード ==
+ * Encoding()関数
+ 
+== MCMC ==
+ * マルコフ連鎖モンテカルロ入門
+ * http://www.slideshare.net/kos59125/ss-9290131?ref=http://d.hatena.ne.jp/yokkuns/20110924/1316857277
+
+
+== 傾向スコア分析とUpLift Modeling ==
+ * [[http://www.amazon.co.jp/調査観察データの統計科学―因果推論・選択バイアス・データ融合-シリーズ確率と情報の科学-星野-崇宏/dp/4000069721/ref=tag_stp_s2_edpp_url|傾向スコア分析]]
+   * 倫理的な問題などがあり、実行不可能な影響に対して、観察研究のみから影響の効果を分析を実施する方法
+ * [[http://stochasticsolutions.com/pdf/sig-based-up-trees.pdf|Up Lift Modeling]]
+   * 介入によって、可能な限り効果のあるグループを求めるモデル。
+
+== Rでフォント変更 ==
+ * .Rprofileというファイルでフォント変更可能（日本語フォントも使えるようになります)
+
+== 地形データ ==
+ * http://www.jspacesystems.or.jp/ersdac/GDEM/J/3.html
+
+==  メモ ==
+ * [[http://geocities.yahoo.co.jp/gl/snatool|社会学研究のためのR勉強会]]
+ * 回帰分析のt値2以上になると意味があるといいやすい。
+ * http://lab.sakaue.info/wiki.cgi/JapanR2010?page=%CA%D9%B6%AF%B2%F1%C8%AF%C9%BD%C6%E2%CD%C6%B0%EC%CD%F7
+

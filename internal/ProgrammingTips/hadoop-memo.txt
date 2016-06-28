@@ -1,0 +1,7 @@
+ * hadoopとhbaseで言語モデルの推定 <<BR>>
+
+ http://www.scribd.com/doc/7435173/Estimating-Language-Models-Using-Hadoop-and-Hbase
+
+ * ReduceがOut of Memmoryで落ちる <<BR>>
+
+ mapred.child.java.optsに-Xmx1024mを設定

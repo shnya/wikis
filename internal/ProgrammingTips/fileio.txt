@@ -1,0 +1,6 @@
+|| !FileReader(!FileWriter) || ファイル入出力文字ストリームの簡易版(文字コードの変換はできない) ||
+|| !FileInputStream(!FileOutputStream) || ファイル入出力バイトストリーム　||
+|| !InputStreamReader(!OutputStreamWriter) || バイトストリーム => 文字ストリーム変換アダプタ ||
+|| !BufferedReader(!BufferedWriter) || バッファ付き文字列入出力<<BR>> 使用例) !BufferedReader(new !InputStreamReader(new !FileInputStream(file))) ||
+|| Scanner(Formatter) || 書式付き入出力 ||
+

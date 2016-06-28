@@ -1,0 +1,12 @@
+= OMake =
+
+== FamErrlistというWarningが出るよ ==
+
+http://lists.metaprl.org/pipermail/omake/2005-August/000541.html <<BR>>
+"fam"と"gamin"というAPIとABIは同じだけど違うメンテナの方とは違うライブラリを使用しているから出るメッセージ
+harmlessらしいので別に気にしなくてもよい。
+
+== useful link  ==
+ * [[http://omake.metaprl.org/index.html|本家]]
+ * [[http://omake.metaprl.org/manual/omake.html|本家ドキュメント]]
+

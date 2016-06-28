@@ -1,0 +1,12 @@
+== Editor ==
+ * [[vim]]
+
+== Web Service ==
+ * [[MoinMoin Memo]]
+
+== Window Manager ==
+ * LXDE
+
+== Hadoop ==
+ * [[Amazon EMRセミナー20120517]]
+

@@ -1,0 +1,74 @@
+このコードからわかるように結局副作用のあるコードは全てdoを使って直列化されている。
+{{{
+import Control.Monad (forM_, filterM)
+import System.Directory(doesDirectoryExist, getDirectoryContents)
+import System.FilePath((</>))
+
+-- 一度取り出した値については、いつどのように計算するのも自由
+filterCurrentAndParent :: [String] -> [String]
+filterCurrentAndParent names = filter (`notElem` [".", ".."]) names
+
+-- doesDirectoryExistは副作用があるのでfilterMを利用しなければならない
+extractDirectory :: String -> [String] -> IO [FilePath]
+extractDirectory dir names = do
+  filterM doesDirectoryExist 
+          $ map (\x -> dir </> x) $ filterCurrentAndParent names
+
+-- 深さ優先探索 関数スタックを利用
+-- Real World Haskellのコードを元に修正
+getRecursiveContents :: FilePath -> IO ()
+getRecursiveContents topdir = do 
+  putStrLn topdir
+  names <- getDirectoryContents topdir
+  let properNames = filterCurrentAndParent names
+  forM_ properNames $ \name -> do 
+                                let path = topdir </> name
+                                isDirectory <- doesDirectoryExist path
+                                if isDirectory 
+                                   then getRecursiveContents path
+                                   else return ()
+
+
+-- 幅優先探索 引数のキューリストを利用
+getRecursiveContents2 :: [FilePath] -> IO ()
+getRecursiveContents2 [] = return ()
+getRecursiveContents2 (topdir:rest) = do
+  putStrLn topdir 
+  names <- getDirectoryContents topdir 
+  dirs <- extractDirectory topdir names
+  getRecursiveContents2 $ rest ++ dirs
+
+main :: IO () 
+-- main = getRecursiveContents "./"
+main = getRecursiveContents2 ["./"]
+
+
+}}}
+
+
+getRecursiveContents2をdoを使わずに書くとこのようになる。
+
+（これならこの順番で実行されますということがわかりやすい。)
+{{{
+-- 幅優先探索 引数のキューリストを利用
+getRecursiveContents2 (topdir:rest) = 
+  putStrLn topdir >>
+  getDirectoryContents topdir >>=
+  extractDirectory topdir >>=
+  (getRecursiveContents2 . (\x -> rest ++ x))
+
+}}}
+
+結局モナドというのはある副作用（アクション)の適用前と適用後の環境を繋ぐグルーみたいなもの、という印象。
+
+参考URL
+
+http://haskell.g.hatena.ne.jp/nobsun/20060907/monadicIO 
+
+http://blogs.dion.ne.jp/keis/archives/5880105.html
+
+
+
+と、いうことは、副作用のあるコードが多くを占める実用的なプログラムの多くは、Haskell使っても結局手続き型プログラミングと同じようなことになりませんか？というので、Haskellに対する興味を失ったのでした。
+それならcommon lispでいいよ、と。
+

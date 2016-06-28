@@ -1,0 +1,250 @@
+== Hadoop環境の構築 ==
+Windows Vista, Ubuntu Linux, FreeBSD 計３台の混在環境におけるHadoopインストールについてまとめました。<<BR>>
+
+<<TableOfContents(5)>>
+
+=== サーバー構成 ===
+|| '''ホスト名''' || '''OS''' ||用途||
+|| leibnitz || Windows Vista ||nameserver, jobtracker, datanode, tasktracker||
+|| femat || Ubuntu Linux 8.10 ||secondary nameserver, datanode, tasktracker||
+|| lagrange || FreeBSD 7.0(Release) ||datanode, tasktracker||
+
+=== 手順 ===
+ 1. hadoopユーザーを管理者アカウントで追加, hadoopユーザーでログイン
+ 2. jdk, cygwin, openssh(cygwinパッケージ)のインストール
+ 3. cygwinの/binにパスを通す
+ 4. JAVA_HOMEの設定をする ([[http://www.javadrive.jp/install/jdk/index5.html|こちらを参照]])
+ 5. cygwin上で/etc/hostsの設定
+ 6. UAC(ユーザーアクセス制御)を切る(opensshの設定ができないため)
+ 7. opensshの設定
+ 8. 公開鍵の作成
+ 9. Hadoopアーカイブをダウンロード, 展開
+ 10. (Hadoopディレクトリ)/conf/hadoop-site.xml, (Hadoopディレクトリ)/conf/hadoop-env.shの編集
+ 11. Hadoop起動確認, 終了
+ 12. 他ホストでhadoopユーザー作成, hadoopユーザーの公開鍵作成, 公開鍵をWindows機へコピー, rsyncで他ホストにデプロイ
+ 13. 他ホストで(Hadoopディレクトリ)/conf/hadoo-env.shを編集
+ 14. (hadoopディレクトリ)/conf/master (hadoopディレクトリ)/conf/slaveの編集
+ 15. Hadoop起動
+
+'''<<Color2(red,一度1ホストで動作するかチェックするのがコツです)>>'''
+
+=== Windows Vistaへのインストール ===
+==== JAVAインストール ====
+ * [[http://java.sun.com/javase/downloads/index.jsp|Sunのダウンロードページ]]からJDKのダウンロードを行って、インストールを行います
+==== cygwinインストール ====
+ * hadoopユーザー作成, hadoopユーザーでログインを行う
+ * [[http://www.cygwin.com/|setup.exe]]のダウンロード, 実行
+ * cygwinの/binにパスを通す
+ * JAVA_HOMEの設定をする ([[http://www.javadrive.jp/install/jdk/index5.html|こちらを参照]])
+ここまではすぐにできるはず
+==== opensshの設定 ====
+ * cygwinをインストールした後にbashコンソールを起動
+ * vi /etc/hostsで以下のように編集(<<host名 IP>>と書かれているところはIPアドレスを入力してください)
+{{{
+<<leibnitz IP>> leibnitz
+<<fermat IP>> fermat
+<<lagrange IP>> lagrange
+}}}
+ * [[http://www.atmarkit.co.jp/fwin2k/win2ktips/859disuac/disuac.html|UACを切る]] (opensshの設定ができないため)
+ * opensshを以下のようにコマンドを実行して設定する
+{{{
+# 先にパーミッションを変更しておかないと、ssh-host-configが落ちる
+$ chmod +rw /etc/passwd
+$ chmod +r /etc/group
+$ chmod 111 /var
+
+# -yをつけている説明ページも多いけど、いろいろ選択肢も増えているので自分で選択することをお勧めします。
+# 選択肢は好みに合わせて適当に設定してください。
+$ ssh-host-config
+}}}
+ * 公開鍵の設定は以下のコマンドを実行すれば作成されます。
+{{{
+$ ssh-user-config 
+
+$ cd ~/.ssh
+$ cat id_rsa.pub >> authorized_keys
+
+# 実際にログインしてみる
+$ ssh localhost
+}}}
+ * ssh localhost などで正しくログインすることが可能かチェックしてください。
+==== Hadoopインストール・設定 ====
+ * [[http://hadoop.apache.org/core/releases.html#Download|Hadoopアーカイブ]]をダウンロードし/home/hadoop/以下に展開します。
+{{{
+$ tar zxf hadoop-0.18.2.tar.gz
+$ mv hadoop-0.18.2 hadoop
+$ ls
+hadoop
+
+}}}
+ * /home/hadoop/hadoo/conf/hadoo-site.xmlを以下のように編集します。<<BR>>それぞれnamenodeとjobtrackerがどのホストのどのポートで起動されているかを示すものです。
+ * hadoop.tmp.dirでdataの保存場所を、dfs.replicationでレプリケーション数を指定しておくといろいろ便利です。
+{{{
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+
+<!-- Put site-specific property overrides in this file. -->
+<configuration>
+<property>
+  <name>fs.default.name</name>
+  <value>hdfs://leibnitz:54310</value>
+  <description>The name of the default file system. A URI whose
+  scheme and authority determine the FileSystem implementation. The
+  uri's scheme determines the config property (fs.SCHEME.impl) naming
+  the FileSystem implementation class. The uri's authority is used to
+  determine the host, port, etc. for a filesystem.</description>
+</property>
+<property>
+  <name>mapred.job.tracker</name>
+  <value>leibnitz:54311</value>
+  <description>The host and port that the MapReduce job tracker runs
+  at. If "local", then jobs are run in-process as a single map
+  and reduce task.
+  </description>
+</property>
+<property>
+  <name>hadoop.tmp.dir</name>
+  <value>/dfs/hadoop-hadoop</value>
+  <description>A base for other temporary directories.</description>
+</property>
+<property>
+  <name>dfs.replication</name>
+  <value>2</value>
+  <description>Default block replication.
+  The actual number of replications can be specified when the file is created.
+  The default is used if replication is not specified in create time.
+  </description>
+</property>
+</configuration>
+}}}
+ * hadoo-env.shに以下の部分のコメントを外し、JAVA_HOMEをbashからでも参照できるように設定します。
+{{{
+export JAVA_HOME=/cygdrive/c/Java/jre6
+}}}
+ * これで基本的な設定は終了しました。一度起動確認を行ってください。<<BR>>このとき公開鍵をパスフレーズありで作成したなら、ssh-agentを起動しておくことをお勧めします。
+{{{
+$ eval `ssh-agent`
+$ ssh-add ~/.ssh/id_rsa
+$ cd /home/hadoop/hadoop
+
+#起動確認
+$ ./bin/start-all.sh
+
+#終了
+$ ./bin/stop-all.sh
+}}}
+
+以上でWindows Vistaへのhadoopのインストールは終了しました。
+
+=== Ubuntu Linuxへのインストール ===
+==== Javaのインストール ====
+ * まずJavaをインストールします
+{{{
+$ sudo aptitude install sun-java6-jdk
+}}}
+==== hadoopユーザーの追加 ====
+ * 次にhadoopユーザーとhadoopグループを追加します
+{{{
+$ sudo addgroup hadoop
+$ sudo adduser --ingroup hadoop hadoop
+}}}
+
+==== /etc/hostsファイルの編集 ====
+ * /etc/hostsファイルにそれぞれのhost名とIPの対応関係を記述します
+{{{
+<<leibnitz IP>> leibnitz
+<<fermat IP>> fermat
+<<lagrange IP>> lagrange
+}}}
+
+==== ssh 設定 ====
+ * SSHへの設定を行います
+{{{
+$ su - hadoop
+$ ssh-keygen -t rsa -P ""
+$ cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+$ scp ~/.ssh/id_rsa hadoop@leibnitz:/home/hadoop/.ssh/id_rsa.fermat
+}}}
+==== IPv6無効化 ====
+ * 必要かどうかわかりませんが、/etc/modprobe.d/blacklistというファイルを編集して以下の記述を追加してIPv6を無効化します
+{{{
+# disable IPv6
+blacklist ipv6
+}}}
+ * 再起動してこの設定を反映させます
+==== Hadoopインストール ====
+ * HadoopディレクトリをWindowsマシンからrsyncでコピーします。
+{{{
+# Windowsのbashコンソール上で実行
+$ rsync -av /home/hadoop/hadoop fermat:/home/hadoop/
+}}}
+ * conf/hadoo-env.shを編集し、JAVA_HOMEを適切に設定します。
+{{{
+export JAVA_HOME=/usr/lib/jvm/java-6-sun
+}}}
+ 
+以上でLinux上での作業は終了です。
+
+=== FreeBSD へのインストール ===
+==== Javaのインストール ====
+ * 最初にJavaをインストールします<<BR>>FreeBSDネイティブで動くJDKパッケージがオープンソースで開発されているので今回はそのパッケージを使用します。
+ * まず[[http://www.freebsdfoundation.org/downloads/java.shtml|FreeBSD Foundation Java Downloads]]からtarボールと[[http://java.sun.com/javase/downloads/index.jsp#timezone|TZUpdater]]をダウンロードしておく必要があります。ダウンロードが完了したら/usr/ports/distfiles以下にコピーします。
+{{{
+$ ls /usr/ports/distfiles |grep "tzupdater"
+tzupdater-1_3_9-2008g.zip
+$ ls /usr/ports/distfiles |grep "diable"
+diablo-caffe-freebsd7-i386-1.6.0_07-b02.tar.bz
+}}}
+ * ファイルを/usr/ports/distfilesにコピーができたら、portsを使ってインストールできます。
+{{{
+$ cd /usr/ports/java/diablo-jdk16
+$ sudo make install clean
+}}}
+
+これでJavaを使う環境が整いました
+hadoopユーザーの追加とSSHの設定, /etc/hostsの編集はUbuntu Linuxの場合と同様なので省略します
+
+==== Hadoopインストール ====
+ * HadoopディレクトリをWindowsマシンからrsyncでコピーします。
+{{{
+# Windowsのbashコンソール上で実行
+$ rsync -av /home/hadoop/hadoop lagrange:/home/hadoop/
+}}}
+ * conf/hadoo-env.shを編集し、JAVA_HOMEを適切に設定します。
+{{{
+export JAVA_HOME=/usr/local/diablo-jdk1.6.0/jre
+}}}
+ 
+以上でFreeBSD上での作業は終了です。
+
+=== Hadoopクラスタの起動 ===
+ * Windows機に戻って, Hadoopがインストールされたディレクトリ以下のconf/masters, conf/slavesを編集します<<BR>>conf/mastersに記述するのはsecondary namenodeのホスト名です<<BR>>conf/slavesにはdatanode, tasktrackerを起動するサーバーを記述します
+{{{
+$ cat conf/masters
+fermat
+
+$ cat conf/slaves
+Leibnitz
+fermat
+kernighan
+}}}
+ * ssh-agentにキーを追加します
+{{{
+$ ssh-add ~/.ssh/id_rsa.fermat
+$ ssh-add ~/.ssh/id_rsa.lagrange
+}}}
+ * Hadoopを起動します
+{{{
+$ cd /home/hadoop/hadoop
+$ ./bin/start-all.sh
+}}}
+
+以上でHadoopクラスタが起動されました
+
+----
+参考文献<<BR>>
+[[http://codezine.jp/article/detail/2699|複数マシンへHadoopをインストールする]]<<BR>>
+[[http://yoshimov.com/?page=Hadoop%2FWindows%A4%C7%A4%CE%BC%C2%B9%D4|Hadoop/Windowsでの実行]]<<BR>>
+[[http://programnet.hp.infoseek.co.jp/coloum/cygwin5.html|CygwinでSSH]]<<BR>>
+[[http://www.michael-noll.com/wiki/Running_Hadoop_On_Ubuntu_Linux_(Single-Node_Cluster)|Running Hadoop On Ubuntu Linux]]
+

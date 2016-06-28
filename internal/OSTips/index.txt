@@ -1,0 +1,12 @@
+== Linux ==
+ * [[Ubuntu初期設定]]
+
+== Mac ==
+ * [[MacPorts]] 
+    * MacPortsパッケージの作り方について説明しています。
+ * [[Safari Extension]]
+    * Safari機能拡張の作り方についてのメモ書きです。
+
+== FreeBSD ==
+ * [[portツールの使い方]]
+

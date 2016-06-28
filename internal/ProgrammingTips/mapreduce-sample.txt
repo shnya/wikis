@@ -1,0 +1,152 @@
+cabocha解析済みデータから単語の頻度を計算するプログラムです。
+
+{{{
+/* パッケージ名は適当に変更してください。 */
+package jp.naist;
+
+/* IOExceptionを利用するために使用　*/
+import java.io.*;
+/* StringTokenizerを使うために利用 */
+import java.util.*;
+
+
+/* パスを利用するために必要　*/
+import org.apache.hadoop.fs.Path;
+/* Configuredクラス　getConf()などを利用するために利用　*/
+import org.apache.hadoop.conf.*;
+/* Text型 IntWritable型を利用するのに使用　*/
+import org.apache.hadoop.io.*;
+/* MapReduceフレームワーク(MapReduceBaseやTextInputFormなど) */
+import org.apache.hadoop.mapred.*;
+/* ToolRunnerを利用するのに使用　*/
+import org.apache.hadoop.util.*;
+
+/*
+ * 単語の頻度を数えるプログラム
+ * コマンドラインでの実行に対応するためにToolを実装している。
+ * Toolを実装するとgetConfigメソッドを実装しなければならないが、それは親クラスのConfiguredで実装されている。
+ */
+public class WordCount extends Configured implements Tool {
+
+ /* Mapクラス
+  * <>内で指定しているのは順に、入力のキー、入力のバリュー、出力のキー、出力のバリューで利用されるクラスを指定している。 
+  */
+ public static class Map extends MapReduceBase implements Mapper<LongWritable, Text, Text, IntWritable> {
+  /* new IntWritable(1)は何度も利用されるのでオブジェクトを先に作っておく */
+  private final static IntWritable one = new IntWritable(1);
+
+  /* Mapメソッド
+   * 引数は４つ
+   * LongWritable key はファイル中の行が入っている(TextInputFormatで設定されている)
+   * Text value は一行のテキストが入っている(TextInputFormatで設定されている)
+   * OutputCollector はMapの出力を集めるオブジェクト　Text, IntWritableの指定をしているのは出力レコード形式キーがテキスト、バリューがINT型
+   * Reporter reporter は現在のジョブの進行具合などを調べたりするのに利用。今回は使用していない。
+   * @see org.apache.hadoop.mapred.Mapper#map(java.lang.Object, java.lang.Object, org.apache.hadoop.mapred.OutputCollector, org.apache.hadoop.mapred.Reporter)
+   */
+  public void map(LongWritable key, Text value, OutputCollector<Text, IntWritable> output, Reporter reporter) throws IOException {
+   /* Text型のままだと扱いにくいので一度String型へ */
+   String line = value.toString();
+   /* この条件に当てはまる場合は出力しないのでそのままreturn */
+   if(line.charAt(0) == '<' || line.charAt(0) == '*' || line.startsWith("EOS")){
+    return;
+   }
+   
+   /* 文字列をタブ区切りに区切る */
+   StringTokenizer tokenizer = new StringTokenizer(line, "\t");
+   
+   /* 必要なのは3列目だけなので1列目、2列目は捨てる。もし3列目がなければそのままリターン　*/
+   for(int i = 0; i < 2; i++){
+    if(tokenizer.hasMoreElements()){
+     tokenizer.nextToken();
+    }else{
+     return;
+    }
+   }
+   /* コレクターに出力する。*/
+   if(tokenizer.hasMoreElements())
+    output.collect(new Text(tokenizer.nextToken()), one);
+  }
+ }
+ 
+ /* リデュースのクラス　説明は基本的にMapと同じ。出力形式と入力形式のキー・バリューペアの型が同じなのをチェック　*/
+ public static class Reduce extends MapReduceBase implements Reducer<Text, IntWritable, Text, IntWritable> {
+  /* これも基本的にはmapメソッドと同じ
+   * キーは一つだけど、バリューは集めてきた値で複数あってiteratorとなってるのに注意。
+   * iteratorは複数ある値を順番に取ってくることができるオブジェクト 
+   */
+  public void reduce(Text key, Iterator<IntWritable> values, OutputCollector<Text, IntWritable> output, Reporter reporter) throws IOException {
+   /* とりあえず合計を初期化　*/
+   int sum = 0;
+   /* iteratorに次があるかを聞いて、次があるならnext()メソッドでイテレータを次に進めて値をget()する。*/
+   while(values.hasNext()){
+    sum += values.next().get();
+   }
+   /* キー・合計値をコレクターに出力 */
+   output.collect(key,new IntWritable(sum));
+  }
+ }
+ 
+ /*
+  * 処理の中心　ここで各種設定をしてからMapReduceのジョブを起動している。
+  * 
+  */
+ public int run(String[] args) throws Exception {
+  
+  /* 設定を行うための設定オブジェクトを取得する(getConf()はConfiguredクラスに実装されている)　*/
+  JobConf conf = new JobConf(getConf(), WordCount.class);
+  
+  /* ジョブ名の設定 */
+  conf.setJobName("wordcount");
+
+  /* 出力するときのキーのクラスを設定　*/
+  conf.setOutputKeyClass(Text.class);
+  /* 出力するときのバリューのクラスを設定　*/
+  conf.setOutputValueClass(IntWritable.class);
+  /* マップクラスの設定 */
+  conf.setMapperClass(Map.class);
+  /* mapプロセスで出力されたデータを中間形式でまとめあげる(今回は数えるだけなのでReduceと同じでOK) */
+  conf.setCombinerClass(Reduce.class);
+  /* 最終的にすべての出力をまとめるリデュースクラスの設定 */
+  conf.setReducerClass(Reduce.class);
+  
+  /* 入力ファイル形式の設定 一行ごとにMapクラスのmapメソッドが呼ばれる形式 */
+  conf.setInputFormat(TextInputFormat.class);
+  /* 出力ファイル形式の設定　キー　バリューというペア形式で出力 */
+  conf.setOutputFormat(TextOutputFormat.class);
+  
+  /* 入力ファイルのパスを設定 */
+  FileInputFormat.setInputPaths(conf, new Path(args[0]));
+  /* 出力ファイルのパスを設定 */
+  FileOutputFormat.setOutputPath(conf, new Path(args[1]));
+  
+  /* 実行　*/
+  JobClient.runJob(conf);
+  return 0;
+ }
+ 
+ /**
+  * メイン
+  */
+ public static void main(String[] args) throws Exception {
+  // TODO Auto-generated method stub
+  
+  /* 引数が2以下ならexit　*/
+  if(args.length < 2) System.exit(1);
+  /* 実行する　*/
+  int res = ToolRunner.run(new Configuration(), new WordCount(), args);
+  /* 終了 */
+  System.exit(res);
+ }
+
+}
+}}}
+
+
+このプログラムをコンパイルして実行するには以下のようなコマンドを実行します。
+
+{{{
+$ javac -cp ~/work/hadoop/hadoop-0.17.2.1-core.jar -d wordcount_classes/ jp/naist/WordCount.java 
+$ jar -cvf WordCount.jar -C wordcount_classes/ .
+$ ./bin/hadoop jar WordCount.jar jp.naist.WordCount <<input>> <<output>>
+}}}
+

@@ -1,0 +1,108 @@
+= Wikipediaデータの解析準備 =
+== MySQLサーバのインストール ==
+ 1.
+ {{{
+$ sudo aptitude install mysql-server mysql-client
+ }}}
+
+== Xml2sqlのコンパイル ==
+
+ 1. Xml2sqlを下記のURLからダウンロードする
+ http://meta.wikimedia.org/wiki/Xml2sql [[http://shnya.jp/public/wikipedia_tools/xml2sql-0.5.tar.gz|ミラー]]
+ {{{
+$ wget http://ftp.tietew.jp/pub/wikipedia/xml2sql-0.5.tar.gz 
+$ tar zxf xml2sql-0.5.tar.gz
+ }}}
+ 2. 開発ツールその他をインストール
+ {{{
+$ sudo aptitude install gcc libexpat-dev
+ }}}
+ 3. パッチを当てる
+ {{{
+$ cd xml2sql-0.5
+$ vi xml2sql.c
+--- xml2sql-0.5/xml2sql.c	2008-01-16 15:32:28.000000000 +0100
++++ xml2sql-0.5 (2)/xml2sql.c	2008-02-17 15:06:34.000000000 +0100
+@@ -741,6 +741,10 @@
+	putcolumnf(&rev_tbl, "%d", revision.minor);
+	/* rev_deleted */
+	putcolumn(&rev_tbl, "0", 0);
++	
++	putcolumn(&rev_tbl, "NULL", 0);
++	putcolumn(&rev_tbl, "NULL", 0);
++
+	finrecord(&rev_tbl);
+	
+	if(page.lastts == 0 || strcmp(page.lastts, revision.timestamp) < 0) {
+ }}}
+ 4. コンパイル
+ {{{
+$ make
+$ cp xml2sql ../ && cd ../
+ }}}
+
+== wikipediaデータベースの作成 ==
+ 1. [[http://svn.wikimedia.org/viewvc/mediawiki/trunk/phase3/maintenance/tables.sql?view=markup|MediaWikiのテーブル定義]]を元に作成した[[http://shnya.jp/public/wikipedia_tools/wikipedia_table.sql|ファイル]]を使ってデータベースを作成します。
+ {{{
+$ mysql -uroot -p < wikipedia_table.sql
+ }}}
+
+== wikipediaデータのダウンロードとDBインポート ==
+ 1. [[http://download.wikimedia.org/|wikipediaのデータベースダウンロードサーバ]]から最新データを取得します。
+ {{{
+$ wget http://download.wikimedia.org/jawiki/latest/jawiki-latest-pages-meta-current.xml.bz2
+ }}}
+ 1. xmlからsqlに変換する
+ {{{
+$ bunzip2 -c jawiki-latest-pages-meta-current.xml.bz2 |
+     sed -e 's/<redirect \/>//'  | ./xml2sql
+ }}}
+ 1. DBにインポートする
+ {{{
+ mysqlimport -uwiki -pwiki! --local wiki --fields-terminated-by='\t'  \
+ --default-character-set=utf8 {page,revision,text}.txt
+ }}}
+
+
+== 静的HTMLへのダンプ ==
+
+== HTMLからテキストの抽出 ==
+ 1. 必要なライブラリのインストール
+ {{{
+$ sudo aptitude install python-beautifulsoup
+ }}}
+ 2. Baiduのブログ・掲示板時間軸コーパスと同様の方法で一度HTMLで解析してやり、その後HTMLタグを削除して抽出します。実行するスクリプトは下記のようになっています。(ファイル名は[[http://shnya.jp/public/wikipedia_tools/html2txt.py|html2txt.py]]としています。)
+ {{{
+from BeautifulSoup import BeautifulSoup
+
+def strip_tags(soup):
+  return ''.join(s.string if s.string else strip_tags(s) for s in soup)
+
+if __name__ == "__main__":
+
+  import sys
+  if (len(sys.argv) != 2):
+    quit()
+
+  f = open(sys.argv[1])
+  print strip_tags(BeautifulSoup(f.read())),
+  f.close()
+ }}}
+
+ 1.  [[http://shnya.jp/public/wikipedia_tools/html2txt.sh|シェルスクリプト]]を利用して、スクリプトを全てのHTMLファイルに適用します。
+ {{{
+#!/bin/sh
+for FNAME in `find ./ -name "*.html"`
+do
+  TXT=`echo $FNAME | sed "s/.html$/.txt/"`
+  python html2txt.py $FNAME > $TXT
+done
+ }}}
+
+
+== 参考URL ==
+ * [[http://d.hatena.ne.jp/knaka20blue/20100304/1267704855|Wikipedia のテキストデータを使ってベンチマークをする! その２ Wikipedia のテキストデータを MySQL に入れる。]]
+ * [[http://d.hatena.ne.jp/knaka20blue/20100310/1268200491|Wikipedia のテキストデータを使ってベンチマークをする! その3 Solr のスキーマ設計]]
+ * [[http://www.baidu.jp/corpus/blogforum/readme.txt|Baidu ブログ・掲示板時間軸コーパス ReadMe.txt]]
+ * [[http://d.hatena.ne.jp/nokuno/20100516/1274006341]]
+

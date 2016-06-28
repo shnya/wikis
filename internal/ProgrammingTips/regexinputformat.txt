@@ -1,0 +1,27 @@
+== RegexInputFormat ==
+=== Motivation ===
+Hadoopには１行ごと、N行ごとにキーバリューペアをMap処理に渡すためのライブラリが標準で付属します。<<BR>> ですが、例えば多くのHTMLファイルを連結し、一つのファイルとして処理を行っているような場合、決め打ちのN行指定では対応ができません。<<BR>> このような場合、開始記号が<html>終了記号が</html>であるようなテキストを切り分けてMap処理に渡すことができればなぁと思い作成しました。<<BR>>
+
+RegexInputFormatはこのような状況を考えて正規表現でキーバリューペアを取り出していくためのライブラリです。
+
+=== Example ===
+
+[[TFIDFを計算するプログラム例]]
+
+=== Download ===
+[[attachment:RegexInputFormat.tar.gz]]
+
+=== Usage ===
+JobConfを利用して以下のように設定を行ってください。
+
+{{{
+conf.set("mapred.regexrecordreader.pattern", "<html[^<>]*?>.*?</html>");
+conf.setInputFormat(RegexInputFormat.class);
+}}}
+これでmapメソッドには(Key LongWritable：マッチした文字列のファイル内の開始位置, Value Text：マッチした文字列)ペアが引数として渡されます。
+
+=== Known Issues ===
+ * UTF-16ではなくISO-8859-1でマッチングしてるので、マルチバイト文字列を利用している場合に問題となることがあるかも。
+ * 最長一致はファイル全体を見ようとするのでおそらく使えません。最短一致で十分使用に耐える場合のみ、ご利用ください。
+ * まだテストが不十分
+

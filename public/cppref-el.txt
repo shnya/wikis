@@ -1,0 +1,54 @@
+== cppref.el ==
+奥 一穂さんのCpprefをemacsから使えるようにしたelispです。
+
+Cpprefの詳細は下記
+
+http://developer.cybozu.co.jp/kazuho/2009/10/cppref-reading.html
+
+
+=== github ===
+該当のcppref.elというファイルはgithubからダウンロードできます。
+
+http://github.com/shnya/cppref-el
+
+=== cppref.el ===
+上記のcppref.elをどこかのload-pathに置いて以下の設定を.emacsに書いてください。
+
+
+
+{{{#!highlight cl numbers=disable
+(require 'cppref)
+(add-hook 'c++-mode-hook
+          #'(lambda ()
+        (setq cppref-docroot "/usr/share/doc/cppref") ; cpprefのドキュメントパス
+;;        (cppref-add-docdir-list "/usr/share/doc/libboost-doc/HTML/doc/html")　; boostのドキュメントパス
+        (define-key c++-mode-map "\M-h" 'cppref)))　; cpprefで調べる時に利用するキーバインド
+}}}
+=== 使い方 ===
+push_back, vectorなどの詳細を知りたいキーワードの上にカーソルを乗せた後に、上記で指定したキーバインドを入力もしくは「M-x cppref」を行うとC++のリファレンスが出力されます。
+
+push_backのようにどのクラスのメソッドか選択が必要な場合はcppref-modeと言われる選択可能なモードに入ります。
+
+その時のキーマップは以下のようになっています。
+
+{{{
+n 一行下へ移動
+p 一行上へ移動
+q ウィンドウを閉じる
+RET 選択する
+}}}
+
+=== ToDo ===
+ * 今のところ予定はなし
+
+=== ChangeLog ===
+ * 2009/10/9 cppref-modeという名前で公開
+ * 2009/10/10 emacs-w3mサポート, boost用のドキュメントサポートを追加
+
+=== 参考リンク　===
+
+同様のアイディアに基づいたemacs-cppprefはこちら
+cppref-mode作成後、参考にさせて頂いて細部を変更しました。
+
+http://d.hatena.ne.jp/antipop/20091009/1255087113
+

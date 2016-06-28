@@ -1,0 +1,1006 @@
+= C++の落とし穴 =
+
+このドキュメントは下記URLのサイトを翻訳したものです。
+10年以上前に作成されたドキュメントですが、いくつか新たな気づきを与えてくれた原本に感謝して、翻訳してみました。
+やや見づらいところもあるかもしれませんが、誰かのお役に立てれば幸いです。
+
+[[http://www.horstmann.com/cpp/pitfalls.html|C++ Pitfalls]]<<BR>>
+Copyright (C) Cay S. Horstmann 1997<<BR>>
+Translated by shnya (unofficial)
+
+
+<<TableOfContents(3)>>
+
+== 落とし穴って何? ==
+
+コンパイル時, リンク時, 実行時, C++コードはあなたの予想に反する挙動をすることがあります。
+
+
+{{{#!highlight cpp
+事例:
+             if (-0.5 <= x <= 0.5) return 0;
+
+Pitfall:
+              if (-0.5 <= x <= 0.5) return 0;
+}}}
+この式は下記の数学的な条件を表すものではありません。
+{{{#!highlight cpp
+          -1.5 <= x <= 1.5
+}}}
+C++では、最初に -0.5 <= x が0または1のどちらの値を取るかを計算し、
+その後、その結果が0.5より小さいかどうかを比較します。
+{{{
+教訓: C++にはbool型が実装されました。けれどもbool型は依然として特に制限なくint型に変換可能です。
+}}}
+boolからintへの変換が可能となっているため、コンパイラは式の妥当性を検証することができません。<<BR>>
+Javaコンパイラであればコンパイルエラーの通知がなされていたでしょう。
+
+== コンストラクタの落とし穴 ==
+=== C言語のローカルプロトタイプ宣言 ===
+{{{#!highlight cpp
+事例:
+              int main()
+              {  string a("Hello");
+                 string b();
+                 string c = string("World");
+                 // ...
+                 return 0;
+              }
+落とし穴:
+              string b();
+}}}
+この式はstring型のディフォルトコンストラクタを呼び出していません。
+この式の意味するところは、「string型を返し引数のないbという関数のプロトタイプ宣言」です。
+{{{
+教訓: ディフォルトコンストラクタを呼び出すのであれば()は省きましょう。
+}}}
+ローカルスコープで関数のプロトタイプ宣言をするというC言語由来の機能は、利用したいスコープで利用できない意味がないものです。<<BR>>
+プログラマの多くは、プロトタイプ宣言をヘッダファイル内に配置します。<<BR>>
+そんな価値もなく忘れられた機能は、しばしば思いもよらない場所で出現し、あなたを原因不明のエラーで悩ませることになります。
+
+----
+=== 引数が一つのコンストラクタ ===
+{{{#!highlight cpp
+事例:
+              template<typename T>
+              class Array
+              {
+              public:
+                 Array(int size);
+                 T& operator[](int);
+                 Array<T>& operator=(const Array<T>&);
+                 // ...
+              };
+
+              int main()
+              {  Array<double> a(10);
+                 a[0] = 0; a[1] = 1; a[2] = 4; 
+                 a[3] = 9; a[4] = 16;
+                 a[5] = 25; a = 36; a[7] = 49; 
+                 a[8] = 64; a[9] = 81;
+                 // ...
+                 return 0;
+              }
+落とし穴:
+              a = 36;
+}}}
+驚くことに、この式は以下のようにコンパイルされます。
+{{{#!highlight cpp
+              a = Array<double>(36);
+}}}
+aは36個の数字からなる配列に変わってしまいました。
+{{{
+教訓: 引数が一つのコンストラクタは型変換の問題を2倍厄介なものにしてくれます。
+}}}
+int型の引数一つだけを取るようなコンストラクタを作るのは避けましょう!
+もしそれを避けられないならexplicitキーワードを利用しましょう。
+
+----
+=== 配列とポインタの二重性 ===
+{{{#!highlight cpp
+事例:
+              template<typename T>
+              class Array
+              {
+              public:
+                 explicit Array(int size);
+                 // ...
+              private:
+                 T* _data;
+                 int _size;
+              }; 
+
+              template<typename T>
+              Array<T>::Array(int size)
+              :  _size(size), 
+                 _data(new T(size))
+              {}
+
+              int main()
+              {  Array<double> a(10);
+                 a[1] = 64; // program crashes
+                 // ...
+              }  
+落とし穴:
+              template<typename T>
+              Array<T>::Array(int size)
+              :  _size(size), 
+                 _data(new T(size)) // should have been new T[size]
+              {}
+}}}
+なぜこれがコンパイルできるのでしょうか。
+{{{#!highlight cpp
+              new T(size)
+}}}
+は、int型の引数をとるコンストラクタで構築された、要素数が1つの型Tのポインタを返します。
+{{{#!highlight cpp
+          new T[size]
+}}}
+は、ディフォルトコンストラクタで構築された、要素数がsize個の型Tの配列のポインタを返します。
+{{{
+教訓: 配列とポインタの二重性は厄介なことに、CとC++のいたるところでちらばっています。
+}}}
+Javaコンパイラ(他の多くの言語)であれば、もう少し賢い配列型を持っているため、こんな問題は起こりません。
+
+----
+=== 初期化の順序 ===
+{{{#!highlight cpp
+事例:
+
+              template<typename T>
+              class Array
+              {
+              public:
+                 explicit Array(int size);
+                 // ...
+              private:
+                 T* _data;
+                 int _capacity;
+                 int _size;
+              }; 
+
+              template<typename T>
+              Array<T>::Array(int size)
+              :  _size(size), 
+                 _capacity(_size + 10), 
+                 _data(new T[_capacity])
+              {}
+
+
+             int main() 
+             {  Array<int> a(100);
+                . . .
+                // program starts acting flaky
+             } 
+落とし穴:
+              Array<T>::Array(int size)
+              :  _size(size), 
+                 _capacity(size + 10), 
+                 _data(new T[_capacity])
+              {} 
+}}}
+初期化は宣言順に行なわれます。<<BR>>
+初期化順ではありません!
+{{{#!highlight cpp
+          Array<T>::Array(int size)
+              :  _data(new T[_capacity])
+                 _capacity(_size + 10), 
+                 _size(size), 
+}}}
+{{{#!highlight cpp
+TIPS: 初期化の際には、メンバ変数を利用するのはやめておきましょう。
+          Array<T>::Array(int size)
+              :  _data(new T[size + 10])
+                 _capacity(size + 10), 
+                 _size(size), 
+}}}
+----
+=== カンマ演算子の罠 ===
+{{{#!highlight cpp
+事例:
+              class Point
+              {  
+              public:
+                 Point(double x = 0, double y = 0);
+                 // ...
+              private:
+                 double _x, _y;
+              }; 
+              int main()
+              {  double a, r, x, y;
+                 // ...
+                 Point p = (x + r * cos(a), y + r * sin(a));
+                 // ...
+                 return 0;
+              }
+落とし穴:
+              Point p = (x + r * cos(a), y + r * sin(a));
+}}}
+これは、
+{{{#!highlight cpp
+              Point p(x + r * cos(a), y + r * sin(a));
+}}}
+か、
+{{{#!highlight cpp
+              Point p = Point(x + r * cos(a), y + r * sin(a));
+}}}
+のどちらかを書くべきです。<<BR>>
+下記の式は、コンパイルが通ります。<<BR>>
+{{{#!highlight cpp
+              (x + r * cos(a), y + r * sin(a))
+}}}
+カンマ演算子は、x + r * cos(a)の結果を捨てて、y + r * sin(a)を評価します。<<BR>>
+その結果、
+{{{#!highlight cpp
+              Point(double x = 0, double y = 0)
+}}}
+より、コンストラクタは、Point(y + r * sin(a), 0)のインスタンスを構築します。
+{{{
+教訓: ディフォルト引数は意図しない関数呼び出しを引き起こします。
+上記のケースでは、Point(double)は妥当なコンストラクタではなく、まだディフォルトコンストラクタPoint()の方が意味があります。もし全ての引数が意味を持つような場合、ディフォルトコンストラクタを使うようにしましょう。
+}}}
+
+----
+=== コンストラクタと仮想関数 ===
+{{{#!highlight cpp
+事例:
+              class Shape
+              {
+              public:
+                 Shape();
+              private:
+                 virtual void reset();
+                 Color _color;
+              };
+
+              class Point : public Shape
+              {
+              public:
+                 // ...
+              private:
+                 double _x, _y;
+              };
+
+              void Shape::reset() { _color = BLACK; }
+
+              void Point::reset() 
+              {  Shape::reset();
+                 _x = 0; _y = 0;
+              }
+
+              Shape::Shape() { reset(); }
+}}}
+Pointのコンストラクタはありません。Shapeコンストラクタの仮想関数を利用するつもりです。
+{{{#!highlight cpp
+落とし穴:
+              Shape::Shape() { reset(); }
+              Point p;
+}}}
+Pointのコンストラクタが呼び出された時、Point::reset()ではなくShape::reset()が呼ばれます。なぜでしょう？<<BR>>
+{{{
+説明: 仮想関数はコンストラクタ内では機能しません。
+}}}
+ShapeのサブオブジェクトはPointオブジェクトの前に構築されます。<<BR>>
+Shapeクラスのコンストラクタ内部では、まだShapeオブジェクトのメソッドしか利用できません。
+
+----
+=== 純粋仮想関数の罠 ===
+{{{#!highlight cpp
+事例:
+              class Shape // an abstract class
+              {
+              public:
+                 Shape();
+              private:
+                 void init();
+                 virtual void reset() = 0;
+                 Color _color;
+              };
+
+              Shape::Shape() { init(); }
+              void Shape::init() { reset(); } 
+
+              class Point : public Shape // a concrete derived class
+              {
+              public:
+                 virtual void reset();
+                 // ...
+              private:
+                 double _x, _y;
+              };
+
+              void Point::reset() { _x = _y = 0; }
+落とし穴:
+              int main()
+              {
+                 Point p; // program crashes
+                 return 0;
+              }
+}}}
+{{{#!highlight cpp
+説明: 抽象クラス(純粋仮想関数を持つクラスのこと)のインスタンスを構築することはできません。
+         Shape s; // compile-time error; Shape is abstract
+}}}
+コンパイル時にエラーになるのは良いことです。
+もしインスタンスの構築ができるのであれば、コンストラクタがどのような挙動を示すかは未定義です。
+{{{#!highlight cpp
+         s.reset(); // reset not defined for shapes
+}}}
+しかし……私は嘘をつきました。抽象クラスのインスタンスを構築することはできるのです。
+
+継承された具体クラスを構築している時に、一瞬ですが基底クラスは存在します。
+継承されたクラスのコンストラクタが呼ばれる前に、純粋仮想関数が呼ばれた場合、プログラムは不正終了します。
+
+== デストラクタの落とし穴 ==
+=== 呼ばれないデストラクタ ===
+{{{#!highlight cpp
+事例:
+              class Employee
+              {
+              public:
+                 Employee(string name);
+                 virtual void print() const;
+              private:
+                 string _name;
+              };
+
+              class Manager : public Employee
+              {
+              public:
+                 Manager(string name, string dept);
+                 virtual void print() const;
+              private:
+                 string _dept;
+              };
+
+              int main()
+              {
+                 Employee* staff[10];
+                 staff[0] = new Employee("Harry Hacker");
+                 staff[1] = new Manager("Joe Smith", "Sales");
+                 // ...
+                 for (int i = 0; i < 10; i++) 
+                    staff[i]->print();
+                 for (int i = 0; i < 10; i++) 
+                    delete staff[i];
+                 return 0;
+              }
+}}}
+このプログラムのどこでメモリーリークが起きているでしょうか？
+{{{#!highlight cpp
+落とし穴:
+              delete staff[i];
+}}}
+~Employee()によって全てのオブジェクトは破棄されます。Managerオブジェクトの_dept文字列は永遠に破棄されません。
+{{{
+教訓: 継承したクラスはデストラクタを仮想関数にしなければなりません。
+}}}
+----
+=== オブジェクトの二重破棄 ===
+{{{#!highlight cpp
+事例:
+              class Employee
+              {
+              public:
+                 Employee(string name);
+                 virtual void print() const;
+                 virtual ~Employee(); // <-----
+              private:
+                 string _name;
+              };
+
+              class Employee
+              {
+              public:
+                 Employee(string name);
+              private:
+                 string _name;
+              };
+
+              class Manager
+              {
+              public:
+                 Manager(string name, string sname);
+                 ~Manager();
+              private:
+                 Employee* _secretary;
+              }
+
+              Manager::Manager(string name, string sname)
+              :  Employee(name),
+                 _secretary(new Employee(sname))
+              {} 
+
+              Manager::~Manager() { delete _secretary; }
+}}}
+Managerクラスのどこに問題があるでしょうか？
+{{{#!highlight cpp
+落とし穴:
+              int main()
+              {  Manager m1 = Manager("Sally Smith", 
+                    "Joe Barnes");
+                 Manager m2 = m1;
+                 // ...
+              }
+}}}
+m1とm2両方のデストラクタは同じEmployeeオブジェクトを破棄することになります。
+{{{
+教訓: デストラクタのあるクラスにはコピーコンストラク及び代入演算子の定義が必要です。
+              Manager::Manager(const Manager&) 
+              Manager& Manager::operator=(const Manager&).
+}}}
+{{{
+Big3の言葉:
+            これはいいアイディアなどというものではありません。
+            これはただ法なのです。
+                                    -- Marshal Cline
+The Big 3: It's not just a good idea--it's the law (Marshall Cline)
+}}}
+
+== 継承の落とし穴 ==
+=== 基底クラスのメソッド利用 ===
+{{{#!highlight cpp
+事例:
+              class Employee
+              {
+              public:
+                 Employee(string name, string dept);
+                 virtual void print() const;
+                 string dept() const;
+              private:
+                 string _name;
+                 string _dept;
+              };
+
+              class Manager : public Employee
+              {
+              public:
+                 Manager(string name, string dept);
+                 virtual void print() const;
+              private:
+                 // ...
+              };
+
+              void Employee::print() const
+              {  cout << _name << endl;
+              }
+
+              void Manager::print() const
+              {  print(); // print base class
+                 cout << dept() << endl;
+              }
+落とし穴:
+              void Manager::print() const
+              {  print(); // print base class
+                 cout << dept() << endl;
+              }
+}}}
+事例では、コメントでは基底クラスのprint()を呼ぶと書いているにもかかわらず、実際にはManagerクラスのprint()が呼ばれます。また逆に、dept()メソッドは再定義されていないばかりに、Managerクラスのメソッドではなく、Employeeクラスのメソッドが利用されます。
+{{{#!highlight cpp
+教訓: 継承されたクラス内部で、基底クラスのメソッドを呼ぶ時にはスコープ解決演算子を用いましょう。
+              void Manager::print() const
+              {  Employee::print(); // print base class
+                 cout << dept() << endl;
+              }
+}}}
+----
+=== コンパイルできてしまう記法 ===
+{{{#!highlight cpp
+事例:
+              void Manager::print() const
+              {  Employee:print(); // print base class
+                 cout << dept() << endl;
+              }
+落とし穴:
+              Employee:print(); 
+}}}
+これは次のように書かれるべきです。
+{{{#!highlight cpp
+              Employee::print(); 
+}}}
+なぜ、コンパイルできてしまうのでしょうか？
+Employee:はgotoラベルだと判断されてしまうからです。
+{{{
+教訓: 利用していない言語機能は時にあなたに噛み付く恐れがあります。
+}}}
+
+----
+=== 配列操作の落とし穴 ===
+{{{#!highlight cpp
+事例:
+              class Employee
+              {
+              public:
+                 void raise_salary(double by_percent);
+                 // ...
+              };
+
+              class Manager : public Employee
+              {
+              public:
+                 // ...
+              };
+
+              void make_them_happy(Employee* e, int ne)
+              {  for (int i = 0; i < ne; i++)
+                    e[i].raise_salary(0.10);
+              }
+
+              int main()
+              {  Employee e[20];
+                 Manager m[5];
+                 m[0] = Manager("Joe Bush", "Sales");
+                 // ...
+                 make_them_happy(e, 20);
+                 make_them_happy(m + 1, 4); // let's skip Joe
+                 return 0;
+              }
+落とし穴:
+              void make_them_happy(Employee* e, int ne);
+              Manager m[5];
+              make_them_happy(m + 1, 4);
+}}}
+なぜコンパイルできるのでしょうか？
+
+m + 1は「Manger*」型です。継承されているため、「Manager*」型は基底クラスのポインタ型「Employee*」と互換性があります。make_them_happyは「Employee*」型を受けとることができます。
+何も問題がないように見えます。
+
+それでは何が問題なのでしょうか？
+
+配列操作e[i]はi*sizeof(Employee)分のオフセットしか計算しないことです!
+{{{
+教訓: ポインタはC++の中で多用されすぎています。ここで「Employee* e」は2通りの解釈が可能です。
+
+1. eは「Employee*」型のオブジェクトまたは、「Manaer」のような継承されたクラスのオブジェクトを指しています。
+2. eは「Employee*」型のオブジェクトまたは、「Employee」オブジェクトの配列を指しています。
+これらの二通りの解釈は互換性がありません。混同すると実行時エラーを引き起こします。
+コンパイラもプログラマの意図をくんではくれません。
+}}}
+----
+=== 代入演算子の落とし穴 ===
+{{{#!highlight cpp
+事例:
+              class Employee
+              {
+              public:
+                 Employee(char name[]);
+                 Employee(const Employee& b);
+                 ~Employee();
+                 Employee& operator=(const Employee& b);
+                 . . .
+              private:
+                 char* _name;
+              };
+
+              class Manager : public Employee
+              {
+              public:
+                 Manager(char name[], char dept[]);
+                 Manager(const Manager& b);
+                 ~Manager();
+                 Manager& operator=(const Manager& b);
+                 . . .
+              private:
+                 char* _dept;
+              };
+
+              Manager::Manager(const Manager& b)
+              : _dept(new char[strlen(b._dept) + 1])
+              {  strcpy(b._dept, _dept);
+              }
+
+              Manager::~Manager()
+              {  delete[] _dept;
+              }
+
+              Manager& Manager::operator=(const Manager& b)
+              {  if (this == &b) return *this;
+                 delete[] _dept;
+                 _dept = new char[strlen(b._dept) + 1];
+                 strcpy(b._dept, _dept);
+                 return *this;
+              }
+落とし穴:
+              Manager& Manager::operator=(const Manager& b)
+              {  if (this == &b) return *this;
+                 delete[] _dept;
+                 _dept = new char[strlen(b._dept) + 1];
+                 strcpy(b._dept, _dept);
+                 return *this;
+              }
+}}}
+コンストラクタとデストラクタは自動的に基底クラスのコンストラクタおよびデストラクタを呼びます。
+しかしoperator=は自動的に基底クラスのoperator=を呼び出すことはありません。
+{{{#!highlight cpp
+教訓: 継承されたクラスでoperator=の再定義を行う時は、基底クラスのoperator=を明示的に呼び出さなければなりません。
+              Manager& Manager::operator=(const Manager& b)
+              {  if (this == &b) return *this;
+                 Employee::operator=(b);
+                 delete[] _dept;
+                 _dept = new char[strlen(b._dept) + 1];
+                 strcpy(b._dept, _dept);
+                 return *this;
+              }
+}}}
+
+Johann Deneuxがもう一つの落とし穴を指摘してくれました。Managerクラスのコピーコンストラクタは誤っています。上記のコピーコンストラクタは、Employeeクラスのディフォルトコンストラクタを呼び出そうとしています。ですがディフォルトコンストラクタは定義されておらず、もし定義されていれば意図しない挙動を引き起したでしょう。正しいバージョンはこちらです。
+(※訳注 原文ではEmployeeクラスの初期化子の引数に*thisを渡していましたが、基底クラスのメンバ変数もbと同じ値にコピーするのであればbを渡すのが普通です。そのため以下の例は変更しています。)
+{{{#!highlight cpp
+              Manager::Manager(const Manager& b)
+              : Employee(b), _dept(new char[strlen(b._dept) + 1])
+              {  strcpy(b._dept, _dept);
+              }
+}}}
+
+== ストリームクラスの落とし穴 ==
+=== eof()の落とし穴 ===
+{{{#!highlight cpp
+事例:
+              list<int> a;
+              while (!cin.eof())
+              {  int x;
+                 cin >> x;
+                 if (!cin.eof()) a.push_back(x);
+              }
+落とし穴:
+              while (!cin.eof())
+              {  // ...
+              }
+}}}
+これは無限ループとなる可能性があります。もしストリームの状態がfailとなってしまったら、ファイルの末端(EOF)に辿り着くことはありません。
+
+もし、整数を読み込もうとしているのに、数字でない文字列に読み込もうとした場合は、ストリームの状態はfailにセットされるでしょう。
+{{{
+教訓: eof()はfailと同時に使う場合においてのみ有用です。読み込みに失敗した原因がEOFであるかどうかを確認する時に利用できます。
+}}}
+
+----
+=== 見落した末尾のデータ ===
+{{{#!highlight cpp
+事例:
+              while (cin.good())
+              {  int x;
+                 cin >> x;
+                 if (cin.good()) a.push_back(x);
+              }
+落とし穴:
+                 cin >> x; // <--- may succeed and then encounter EOF
+                 if (cin.good()) a.push_back(x);
+}}}
+末尾に改行がなくEOFが連続するようなファイルの場合、このコードは入力ファイルの最後の要素を見落してしまう可能性があります。
+{{{#!highlight cpp
+処方箋: fail()を使いましょう。
+              while (!cin.fail())
+              {  int x;
+                 cin >> x;
+                 if (!cin.fail()) a.push_back(x);
+              }
+}}}
+{{{#!highlight cpp
+basic_ios型の型変換を利用しても構いません。型変換演算子operator void*()は!fail()と等価です。
+              while (cin)
+              {  int x;
+                 cin >> x;
+                 if (cin) a.push_back(x);
+              }
+}}}
+{{{
+教訓: 4つのストリーム検査関数: good(), bad(), eof(), andfail()がありますが、
+有用なものはfail()ただ一つだけです。
+(bad()は!good()と等価ではないことを注意してください)
+}}}
+
+== オーバーロードの落とし穴 ==
+=== 優先順位の罠 ===
+{{{#!highlight cpp
+事例:
+              class Complex
+              {
+              public:
+                 Complex(double = 0, double = 0);
+                 Complex operator+(Complex b) const;
+                 Complex operator-(Complex b) const;
+                 Complex operator*(Complex b) const;
+                 Complex operator/(Complex b) const;
+                 Complex operator^(Complex b) const;
+                 // ...
+              private:
+                 double _re, _im;
+              };
+
+              int main()
+              {  Complex i(0, 1);
+                 cout << i^2 + 1; // i*i  is -1
+                 return 0;
+              }
+}}}
+どうして0と出力されないのでしょうか？
+{{{#!highlight cpp
+落とし穴:
+              cout << i^2 + 1;
+}}}
+C/C++で利用される演算子の優先順位を括弧を使って表現すると、
+{{{#!highlight cpp
+              cout << (i ^ (2 + 1));
+}}}
+のように表すことができます。
+^演算子は、+演算子よりも結び付きが弱いのです。
+(<<演算子よりは強いのですが)
+
+{{{
+教訓: 演算子のオーバーロードを行なった時でも、演算子の優先順位を変更することはできません。問題ドメインにおいて、直感的ではない優先順位を持つ演算子オーバーロードを行ってはいけません。
+}}}
+^の優先順位はXORを表すには最適ですが、累乗を表現するには適切ではありません。
+
+----
+=== operator bool()の罠 ===
+{{{#!highlight cpp
+事例: ストリームクラスはbasic_iosの型変換をサポートしています。ストリームが問題ないかどうかはvoid*への型変換を用いてテストすることが可能です。
+              while (cin)
+              {  int x;
+                 cin >> x;
+                 // ...
+              }
+}}}
+なぜvoid*型へ変換するのでしょうか？bool型への型変換の方が直感的に思えます。
+{{{#!highlight cpp
+              template<typename C, typename T = char_traits<C> >
+              class basic_ios
+              {
+              public:
+                 // ...
+                 operator bool() const
+                 {  if (fail()) return false;
+                    else return true;
+                 }
+              private:
+                 // ...
+              };
+落とし穴:
+              while (cin)
+              {  int x;
+                 cin << x;
+                 // ...
+              }
+}}}
+注意) これは cin >> x のタイプミスです。
+しかし cin << x は意図しない挙動を引き起します。cinの型変換演算子operator bool()はint型にさらに変換されxビットシフトされてしまいます。
+{{{
+教訓: オブジェクトの真偽値を実装する際は、void*への型変換を利用し、intもしくはbool型への型変換は利用しないようにしましょう。intやboolとは異なり、void*は==比較演算子以外の合法な操作はありません。
+(訳注: 今ではSafe Bool Idiomを利用しましょう)
+}}}
+
+----
+=== []演算子の落とし穴 ===
+{{{#!highlight cpp
+事例: []演算子を持つArrayクラスは必要に応じて伸長します。
+              class Array
+              {
+              public:
+                 Array();
+                 ~Array();
+                 Array(const Array&);
+                 Array& operator=(const Array&);
+                 int& operator[](int);
+              private:
+                 int _n; // current number of elements
+                 int* _a; // points to heap array
+              };
+
+              int& Array::operator[](int i)
+              {  if (i > _n)
+                 {  int* p = new int[i];
+                    for (int k = 0; k < _n; k++) 
+                       p[k] = _a[k];
+                    for (; k < i; k++) p[k] = 0;
+                    delete[] _a;
+                    _a = p;
+                    _n = i;
+                 }
+                 return _a[i];
+              }
+
+              int main()
+              {  Array a;
+                 for (int s = 1; s <= 100; s++)
+                    a[s] = s * s;
+                 return 0;
+              }
+落とし穴:
+              void swap(int& x, int& y)
+              {  int temp = x;
+                 x = y;
+                 y = temp;
+              }
+
+              int main()
+              {  Array a;
+                 a[3] = 9;
+                 swap(a[3], a[4]);
+                 return 0;
+              }
+}}}
+swap関数はa[3]とa[4]の参照を取得します。しかし、二度目のリファレンス取得時に配列が移動し、最初に取得した参照は無効となります。a[4]は無効なリファレンスとswapしようとします。
+{{{
+教訓: メモリの再配置と参照の取得を同時に行なうことはできません。
+}}}
+
+配列を伸長しない、もしくは要素が二度と動かないようなデータ構造を使用しましょう。
+(つまり、std::dequeのようにポインタの配列で管理するようなデータ構造です)
+
+== 例外の落とし穴 ==
+{{{#!highlight cpp
+事例:
+              void read_stuff(const char filename[])
+              {  FILE* fp = fopen(filename, "r");
+                 do_reading(fp);
+                 fclose(fp);
+              }
+}}}
+なぜこれが「例外の落とし穴」となるのでしょうか？
+このコードにはどこにも例外がありません。
+{{{#!highlight cpp
+落とし穴:
+                 FILE* fp = fopen(filename, "r");
+                 do_reading(fp);
+                 fclose(fp); // <-- may never get here
+}}}
+もしdo_readingが例外を投げる、もしくはdo_rading内部で例外を投げるような関数を呼ぶなら、二度と元の処理には戻ってきません。そしてfpがクローズされることはありません。
+{{{
+教訓: 例外ハンドリングは制御構造を根本的に変えてしまいます。関数は戻ってくるということを当然だと思うことはできません。
+}}}
+
+{{{#!highlight cpp
+解決策 1: よく使われるがお馬鹿な方法
+              void read_stuff(const char filename[])
+              {  FILE* fp = fopen(filename, "r");
+                 try
+                    do_reading(fp);
+                 catch(...)
+                 {  fclose(fp);
+                    throw;
+                 }
+                 fclose(fp);
+              }
+解決策 2: 賢い方法
+              void read_stuff(const char filename[])
+              {  fstream fp(filename, ios_base::in);
+                 do_reading(fp);
+              }
+}}}
+もしdo_readingが例外を投げた時であっても、fpはifstreamのデストラクタでクローズされます。
+{{{
+教訓: 例外ハンドリングのコード(つまり1994年以降の全てのC++コードで)の中では、リソースの開放はデストラクタの中だけにしましょう。
+}}}
+
+== コンテナの落とし穴 ==
+=== auto_ptrの罠 ===
+{{{#!highlight cpp
+事例:
+              double find_salary_increase(auto_ptr<Employee>);
+
+              void do_stuff(const char name[])
+              {  auto_ptr<Employee> pe = new Employee(name);
+                    // can't use 
+                    // Employee* pe = new Employee(name)
+                    // that's not not exception safe
+                 double rate = find_salary_increase(pe);
+                 pe->raise_salary(rate);
+              }
+落とし穴:
+            find_salary_increase(pe);
+}}}
+auto_ptrのオブジェクトを関数に引数として渡すと、オーナーシップをコピーしたオブジェクトに移動するようなauto_ptr<Employee>のコピーコンストラクタを呼び出します。
+
+1つのauto_ptrだけが、ヒープオブジェクトを保持することができます。
+スコープから外れた時、オブジェクトを保持しているauto_ptrはデストラクタを呼び出します。
+{{{#!highlight cpp
+解決策: 関数にauto_ptrのコピーを渡さない。
+              double find_salary_increase(Employee*);
+
+              void do_stuff(const char name[])
+              {  Employee* pe = new Employee(name);
+                 auto_ptr<Employee> ape = pe; // use only for destruction
+                 double rate = find_salary_increase(pe);
+                 pe->raise_salary(rate);
+              }
+}}}
+
+----
+=== ポインタの集合(obsolete) ===
+{{{#!highlight cpp
+事例:
+              set<Employee*> staff;
+              vector<string> names;
+              for (int i = 0; i < names.size(); i++)
+                 staff.insert(new Employee(names[i]);
+落とし穴: 順序ありコンテナ(set, map, multiset, multimap)は「<演算子」を比較に利用します。
+「<演算子」は全順序を仮定しています。
+}}}
+[ノート: これが時代遅れであることを指摘してくれましたLiam DevineとRichard Smithに感謝します。コンテナは実際に比較する時はless<T>を使用しており、C++ StandardのSection 20.3.3.8でこう述べられています。「ビルトインの演算子、<, >, <=, >=が順序付けできなくても、テンプレートクラス, greater, less, greater_equal, less_equalは、どのような型のポインタであっても特殊化可能であり、全順序が得ることができる」私がこの文書を書いた時、分割されたメモリモデルは依然として幅広く使われており、C++ Standardはまだ策定中でした。]
+
+下記のポインタの集合は「<演算子」を用いて比較されます。
+{{{#!highlight cpp
+              set<Employee*> staff;
+}}}
+
+pとqの任意のEmployeeクラスのポインタが与えられた時、p < q定義されているでしょうか？
+これが定義されているのは同じ配列を指しているポインタ同士の場合のみです。
+
+セグメント化されたメモリモデルでは、オフセットだけが比較可能です。
+例えば、p == 0x740A0004 と q == 0x7C1B0004は同一性を比較できます。
+
+{{{#!highlight cpp
+解決策: (リスクのある方法) pointerのワードサイズがint型のワードサイズと等しいような、フラットなメモリ空間上でのみコードを書き、比較は全順序で行われるようにする方法。
+
+解決策: (よくやる方法) 順序を比較する演算子を用意する。
+              bool employee_ptr_less(const Employee* a, const Employee* b)
+              {  return a->salary() < b->salary();
+              }
+
+              set<Employee*, bool (*)(const Employee*, const Employee*)>
+                 staff(employee_ptr_less);
+}}}
+----
+=== 暴走するイテレータ ===
+{{{#!highlight cpp
+事例:
+       list<int> a, b;
+       // ...
+
+       list<int>::iterator p
+             = find(a.begin(), b.end(), 100); 
+       if (p != a.end()) b.push_back(*p);
+落とし穴:
+             find(a.begin(), b.end(), 100); // oops, should have been a.end()
+}}}
+このコードが派手にクラッシュする理由を、findの実装を見て確認しましょう。
+{{{#!highlight cpp
+       template<typename I, typename T>
+       I find(I from, I to, const T& target)
+       {  while (from != to && *from != target)
+             ++from;
+                 return from; 
+       }
+}}}
+a.end()に到達した時、*fromや++fromの挙動は未定義です。
+{{{
+教訓: イテレータは状態を自分自身では管理していません。
+もちろんlist<int>が自分自身の状態を確認することは不可能ではありません。
+ですが、STLではイテレータの機能を、Cの配列と同程度に制限しているため、よりパワフルな機能は実装されていません。なぜなら、そうしておくことで、Cの配列を使って標準アリゴリズムを利用することができるからです。
+       int a[30];
+       int* p = find(a, a + 30, 100);
+}}}
+{{{
+欠点: イテレータを用いたプログラミングはポインタ指向であり、オブジェクト指向ではありません。
+解決策: Safe STL(http://www.horstmann.com/safestl.html)を利用しましょう。
+}}}
+
+----
+=== でたらめないイテレータ ===
+{{{#!highlight cpp
+事例:
+       list<int> a;
+       list<int> b;
+       list<int>::iterator p = a.begin();
+
+       a.insert(50);
+       b.insert(100);
+
+       b.erase(p);
+       cout << a.length() << endl; // length is 1
+       cout << b.length() << endl; // length is 0
+落とし穴:
+       b.erase(p);
+}}}
+pはa内部を指すイテレータです。そのため上記の挙動は未定義となります。
+けれど標準的なSTLの実装では次のような挙動を示します。
+
+ *  *pはどんなリストに含まれているものであっても削除され、前方と後方のリンクを繋げます。
+ *  bの流さがデクリメントされます。
+
+{{{
+教訓: イテレータは自分の所有者を知りません。
+解決策: Safe STL (http://www.horstmann.com/safestl.html)を使いましょう。
+}}}
+

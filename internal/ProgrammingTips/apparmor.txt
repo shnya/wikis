@@ -1,0 +1,22 @@
+{{{
+あとは、apparmor(セキュリティ用のツール)の設定も変更します。
+
+sudo vi /etc/apparmor.d/usr.sbin.mysqld 
+で、以下のように変更します。
+具体的には、/home/mysql/data/ にアクセス許可を設定します。
+
+#  /var/lib/mysql/ r,
+#  /var/lib/mysql/** rwk,
+  /home/mysql/data/ r,
+  /home/mysql/data/** rwk,
+そして、apparmorとmysqlを再起動すると、
+
+> sudo /etc/init.d/apparmor restart
+Reloading AppArmor profiles : done.
+> sudo /etc/init.d/mysql restart
+ * Starting MySQL database server mysqld  [ OK ]
+ * Checking for corrupt, not cleanly closed and upgrade needing tables.
+}}}
+
+http://tobysoft.net/wiki/index.php?Ubuntu/mysql
+

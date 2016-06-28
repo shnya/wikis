@@ -1,0 +1,50 @@
+== C++ ==
+  * [[C++Thread]]
+  * [[Expression Template]]
+  * [[http://shnya.jp/files/stl/|STLのぺーじ]]
+
+== Haskell ==
+  * [[http://haskell.org/ghc/docs/latest/html/libraries/base/Prelude.html|Prelude関数一覧]]
+  * [[Haskell List操作関数]]
+  * [[副作用のあるコードの例]]
+  * [[Haskell memo]]
+
+== R ==
+  * [[http://www.okada.jp.org/RWiki/|RjpWiki]]
+  * [[R Tips]]
+  * [[http://google-styleguide.googlecode.com/svn/trunk/google-r-style.html|R coding規約]]
+
+
+== Java ==
+  * [[ファイル入出力]]
+  * [[Java Tips]]
+
+== Lisp ==
+ * [[http://shnya.jp/files/onlisp/onlispjhtml/|onlisp]]
+
+== Perl ==
+  * [[Perl一行野郎]]
+  * [[http://perldoc.jp/|perlのドキュメント]]はここで。
+  * C言語とのインターフェースはperlxsとperlgutsで。
+
+== PHP ==
+ * [[PHPコーディング規約|コーディング規約]]
+
+== プロジェクト管理ツール ==
+ * [[Omake]]
+
+== テスト ==
+ * [[文字テスト]]
+
+== MySQL ==
+ * [[AppArmor設定]]
+ * [[MySQL最適化|最適化]]
+
+
+== Hadoop ==
+ * [[Hadoop環境の構築]]
+ * [[Hadoop MapReduce sample]]
+ * [[Hadoop デバッグ]]
+ * [[RegexInputFormat]]
+ * [[Hadoop関連メモ]]
+

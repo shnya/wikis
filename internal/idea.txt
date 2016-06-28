@@ -1,0 +1,26 @@
+== アイディア段階 ==
+ * Cuckoo Hashing
+ * Rankingアルゴリズムを利用したRSSリーダー
+ * LHS(Locality Sensitive Hash)を使った画像検索
+ * UFL(unified file layer 複数ファイルを１ファイルに見せる)
+   * libtarみたいにtarフォーマット使えばいいかも。
+
+ * State Machine Compiler
+ * w3m proxyサーバー
+ * Btreeを使ったKey-Value Store
+ 
+
+== 終了 ==
+ * [[http://shnya.jp/wiki/RegexInputFormat|Regex Record Reader(Hadoop)]]
+ * [[http://code.google.com/p/yasnippet/|コードスニペット・ジェネレータ管理ツール]]
+   * #ifndef __HEADER__　とか定型な書き方が存在するのでそれを消すために必要。
+   * yasnippetsがあり、それで十分
+ * ノイマンカーネルを使ったリコメンドシステム
+   * やった人が既にいました。
+ * [[http://stxxl.sourceforge.net/|STXXL]]使って配列操作
+
+== 今ひとつ ==
+ * htree Web::Scrapperとか
+ * IE8 activity firefoxエクステンションで同様のことできるな。
+ * htmlパーザー(firefox proxy?)
+ * proxyサーバー（フィルタプログラムで）使ってなにかいろいろ面白いことは？

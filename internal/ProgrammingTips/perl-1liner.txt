@@ -1,0 +1,237 @@
+{{{
+ * 標準perlだけで使える1行野郎
+ 
+ [置き換え]
+ すべてのcのファイル中のfooをbarに置き換える。 
+ bakでバックアップ付き
+ ¥bは単語の区切り
+ perl -p -i.bak -e 's/¥bfoo¥b/bar/g' *.c
+ 
+ それぞれのファイルに含まれる数値を１増やしてセーブします
+ bakでバックアップ付
+ perl -i.bak -pe 's/(¥d+)/ 1 + $1 /ge' file1 file2 ....
+ 
+ 改行コードを0D0A から 0Aに変換します
+ perl  -pe  's/¥015¥012/¥012/g' file
+ 
+ 改行コードを0A から 0D0Aに変換します
+ perl  -pe  's/¥012/¥015¥012/g' file
+ 
+ 
+ 
+ [ 部分的な取り出し]
+ スペースで区切られたフィールドの最初から4番目までと6番目を表示
+ perl -lane 'print "@F[0..4] $F[6]"' file
+ 
+ コロンで区切られたフィールドの最初から4番目までを表示
+ perl -F: -lane  'print "@F[0..4]¥n"' /etc/passwd
+ 
+ STARTとENDに挟まれた部分を表示
+ perl -ne 'print if /^START$/ .. /^END$/' file
+ 
+ STARTとENDに挟まれた部分以外を表示 
+ perl -ne 'print unless /^START$/ .. /^END$/' file
+
+ 最初の50行を表示
+ perl -pe 'exit if $. > 50' file
+ 
+ 最初の10行を表示しない
+ perl  -ne 'print unless 1 .. 10' file
+ 
+ 15 から 17 行目だけを表示
+ perl -ne 'print if 15 .. 17' file
+ 
+ 各行の80文字以降を捨てる
+ perl -lne 'print substr($_, 0, 80) = ""' file
+ 
+ 各行の最初の10文字を捨てる
+ perl -lne 'print substr($_, 10) = ""' file
+ 
+ 
+ 
+ [よりよいgrep]
+ commentという文字列が含まれている行を表示
+ perl -ne 'print if /comment/' duptext
+ commentという文字列が含まれていない行を表示
+ perl -ne 'print if /comment/' duptext
+ 
+ commentまたはappleという文字列が含まれている行を表示
+ perl -ne 'print if /comment/ || /apple/' duptext
+ 
+ commentまたはappleという文字列が含まれている行を表示
+ perl -ne 'print if /comment/ || /apple/' duptext
+ 
+ commentとappleの両方の文字列が含まれている行を表示
+ perl -ne 'print if /comment/ || /apple/' duptext
+ 
+ commentという文字列が含まれている行とファイル名を表示
+ findと一緒に使うと便利
+ perl -ne 'print "$ARGV:$_" if /comment/' file1 file2 file3 ...
+ 
+ intにだけ一致する（printには一致しない)grep
+ perl -ne 'print if /¥bint¥b/' test.txt
+ 
+ port0からport9までの10個の単語に一致する
+ perl -ne 'print if /¥bport¥d¥b/' test.txt
+ 
+ port0からport9999などといった数字が末尾につく単語に一致する
+ perl -ne 'print if /¥bport¥d+¥b/' test.txt
+ 
+ 
+
+ [フィールド間の演算]
+ 最初のフィールドと最後から２番目のフィールドを合計する
+ perl -lane 'print $F[0] + $F[-2]'
+ 
+ 
+ 
+ [ソート]
+ ファイルを行単位でソートします
+ perl  -e 'print sort <>' file
+ 
+ ファイルをパラグラフ単位でソートします
+ perl  -00 -e 'print sort <>' file
+ 
+ 複数ファイルをファイル毎比較してソートしてから１本のファイルとして表示し
+ ます
+ perl  -0777 -e 'print sort <>' file1 file2
+ 
+ 
+
+ [反転]
+ あたえられたファイルを行単位でひっくり返します
+ perl -e 'print reverse <>' file1
+ 
+ ファイルを文字単位ですべてひっくり返します
+ perl -0777e 'print scalar reverse <>' f1 f2 f3 ...
+ 
+ ファイルをパラグラフ単位でひっくり返します
+ perl -00 -e 'print reverse <>' file1 file2 file3 ....
+ 
+ １行の中で文字単位でひっくり返します
+ perl -nle 'print scalar reverse $_' file1 file2 file3 ....
+ 
+ 辞書から回文を探します。残念ながら日本語には対応していません
+ perl -lne 'print if $_ eq reverse' /usr/dict/words
+ 
+ ファイル中に２回以上連続して現れる単語があれば、そのうちの１個を表示しま
+ す
+ perl -0777 -ne 'print "$.: doubled $1¥n" while /¥b(¥w+)¥b¥s+¥b¥1¥b/gi'
+ 
+ 
+ 
+ [数値変換]
+ 入力された１０進数を１６進数に変換して表示します。CTRL-Cで終了
+ perl  -ne  'printf "%x¥n",$_'
+
+ 入力された１０進数を８進数に変換して表示します。CTRL-Cで終了
+ perl  -ne  'printf "%o¥n",$_'
+ 
+ 入力された１６進数を１０進数に変換して表示します。CTRL-Cで終了
+ perl -ne 'print  hex($_)."¥n"'
+ 
+ 入力された８進数を１０進数に変換して表示します。CTRL-Cで終了
+ perl -ne 'print  oct($_)."¥n"'
+ 
+ 簡易電卓として計算できます。CTRL-Cで終了
+ perl -ne 'print  eval($_)."¥n"'
+ 
+ 
+ 
+ ●-Mは反則だろう。でも便利。モジュールな1行野郎
+ 
+ http://www.yahoo.co.jp/のページのソースを表示
+ perl -MLWP::UserAgent -e 'LWP::UserAgent->new->request(HTTP::Request-  >new('GET',$ARGV[0]),sub{print $_[0];});' http://www.yahoo.co.jp/
+
+ 引数で指定したところからすべてのファイルを見つけて表示します
+ perl -MFile::Find -le 'find {wanted=>sub {print;}},$ARGV[0]'
+ 
+ カレントディレクトリからすべての拡張子plファイルを見つけて表示します
+ perl -MFile::Find -le 'find {wanted=>sub {print if /¥.pl$/;}},$ARGV[0]'
+ 
+ ディレクトリを作ります。mkdirと違って深い階層を一度に作ることができま
+ す。
+ perl -MFile::Path -e 'mkpath([@ARGV],1,0777)' test/tmp1 test2/tmp2
+ 
+ Base64でエンコードします
+ perl -MMIME::Base64 -ne 'print &MIME::Base64::encode_base64( $_)' file
+ 
+ Base64でエンコードされたfileをデコードします
+ perl -MMIME::Base64 -ne 'print &MIME::Base64::decode_base64( $_)' file
+ 
+ Quoted-Printable でエンコードします(参照 RFC 2045 )
+ perl -MMIME::QuotedPrint -ne 'print &MIME::QuotedPrint::encode_qp( $_)' file
+ 
+ 指定されたページを取ってきて表示します。
+ perl -MLWP::Simple -e 'getprint "http://www.foo.bar.com/";
+ 
+ ftpでファイルをダウンロードします。
+ perl -MLWP::Simple -e 'getstore   "ftp://ftp.sunet.se/pub/lang/perl/CPAN/src/latest.tar.gz","perl.tar.gz"'
+ 
+ httpドキュメントのミラーリング
+ perl -MLWP::Simple -e 'mirror("http://www.perl.com/", "perl.html");'
+ 
+ 
+ 
+ ●一行野郎のためのオプション解説
+ 
+ -0数字(8 進数)
+ レコードセパレータ ($/) を 8 進数で示します。デフォルトセパレーターは改
+ 行です
+ 
+ -00
+ パラグラフモードにします。パラグラフとは連続した改行で区切られる
+ 文の固まりです
+ 
+ -0777 セパレーターを無効にします。すなわちファイル全体が１パラグラフにな
+ ります
+ 
+ -a 自動splitモード
+   配列 @F = split(' ');
+   区切り文字は-Fで指定可能
+   デフォルトは1文字スペース
+ 
+ -e
+ 1行野郎のキーワード
+ コマンドラインにあたえられた文字列をperlのプログラムとして実行します
+ 複数の-eを使うこともできますがセミコロンが必要
+ 
+ -i拡張子
+ .bakなどを指定することで、個々のファイルのバックアップを取って上書きし
+ ます。
+ 
+ -l数字(8 進数)
+ 自動chomp
+ 出力時に数字(8 進数)を改行コードに置き換える。
+ 
+ 
+ -n
+ 自動ループ
+   while (<>) {
+           ... # ここでスクリプトが実行される
+   }
+
+
+ -p
+ 自動ループprint付
+   while (<>) {
+           ... # ここでスクリプトが実行される 
+ 
+  }
+
+ 組み合わせ
+ 
+ -na -F正規表現
+   while (<>) {
+         @F=split(/正規表現/);
+           ... # ここでスクリプトが実行される
+   }
+  
+ -pa -F正規表現
+   while (<>) {
+         @F=split(/正規表現/);
+           ... # ここでスクリプトが実行される
+         print ;
+   }
+}}}
+

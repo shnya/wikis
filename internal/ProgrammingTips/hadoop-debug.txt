@@ -1,0 +1,33 @@
+= Hadoop デバッグ =
+== localで実行 ==
+以下の設定を行えば１マシンでeclipseなどを使用してデバッグが可能です。
+
+{{{
+conf.set("mapred.job.tracker", "local");
+conf.set("fs.default.name", "local");
+}}}
+
+== printfデバッグ ==
+その他にとりあえずprintfデバッグとしてのデバッグ手法をあげておきます。
+=== Reporterを使用する方法 ===
+MapクラスのmapメソッドにはReporterオブジェクトが引数として渡されます。<<BR>>
+このオブジェクトを利用して計算途中の結果を出力することができます。<<BR>>
+setStatusを呼び出せば、map reduceの進捗状況に反映されます。
+{{{
+reporter.setStatus(value.toString());
+}}}
+
+=== Commons-Loggingを使用する ===
+クラス変数を以下のように定義しておいて、
+{{{
+    private static final Log LOG = LogFactory.getLog(RegexRecordReader.class.getName());
+}}}
+必要な箇所でログを出力する
+{{{
+LOG.info("Skipped match sequence of size " + value.getLength() + " at pos " + (pos - newPos));
+}}}
+すると、TaskTrackerのログに出力されるので、そこからデバッグが可能です。
+
+
+== 参考文献 ==
+[[http://wiki.apache.org/hadoop/HowToDebugMapReducePrograms|Hadoop本家のwiki]] 多分これ見ればそれだけでＯＫ

@@ -1,0 +1,118 @@
+{{{#!highlight cpp
+
+#include <tcutil.h>
+#include <tchdb.h>
+#include <boost/thread.hpp>
+#include <cstdlib>
+#include <cstdio>
+#include <iostream>
+
+
+using namespace std;
+using namespace boost;
+
+
+TCHDB *hdb;
+
+class TSInteger {
+  mutex guard;
+  long long n;
+
+public:
+  TSInteger(): n(0) {}
+
+  int increment(void){
+    mutex::scoped_lock lock(guard);
+    n++;
+    return n;
+  }
+
+} num;
+
+class WriteClass {
+  unsigned int n;
+
+public:
+  WriteClass(int num1) : n(num1) {}
+  WriteClass(const WriteClass& wr) : n(wr.n) {}
+  void operator()(){
+    for(unsigned int i = 0; i < n; i++){
+      char str[8];
+      long long x = num.increment();
+      snprintf(str, 8, "%8d", static_cast<int>(x));
+      char *key = strdup(str);
+      char *value = strdup(key);
+      int j = 0;
+      while(!tchdbput2(hdb, key, value) && j++ < 5) ;
+      if( j > 4 ){
+	int ecode = tchdbecode(hdb);
+	cerr << "put error : " << tchdberrmsg(ecode) << endl;
+	exit(0);
+      }
+      free(key);
+      free(value);
+    }
+  }
+
+};
+
+class ReadClass {
+  unsigned int n;
+
+public:
+  ReadClass(int num1) : n(num1) {}
+  ReadClass(const ReadClass& r) : n(r.n) {}
+
+
+  void operator()(){
+    for(unsigned int i = 0; i < n; i++){
+      char str[9];
+      long long x = num.increment();
+      snprintf(str, 8, "%8d", static_cast<int>(x));
+      char *key = strdup(str);
+      char *value;
+      int j;
+      while(!(value = tchdbget2(hdb, key)) && j++ < 5) ;
+      if( j > 4 ){
+	int ecode = tchdbecode(hdb);
+	cerr << "put error : " << tchdberrmsg(ecode) << endl;
+	exit(0);
+      }
+      free(key);
+      free(value);
+    }
+  }
+
+};
+
+
+int main(int argc, char *argv[])
+{
+  const long  MAX_RW_TIMES = 1024 * 1024;
+  thread_group group;
+  hdb = tchdbnew();
+  tchdbsetmutex(hdb);
+
+  if(argc < 2){
+    cerr << "please specify thread num" << endl;
+    exit(0);
+  }
+  long thread_num = strtol(argv[1], NULL, 0);
+  
+
+  if(!tchdbopen(hdb, "test.tch", HDBOWRITER | HDBOCREAT)){
+    cerr << "open error" << endl;
+    exit(0);
+  }
+
+  for(unsigned int i = 0; i < thread_num; i++){
+    group.create_thread(ReadClass(MAX_RW_TIMES / thread_num));
+  }
+  group.join_all();
+
+  tchdbclose(hdb);
+
+  return 0;
+}
+
+}}}
